@@ -1,0 +1,47 @@
+# Ignorer les fichiers et dossiers spécifiques à macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Ignorer les environnements virtuels Python
+venv/
+env/
+*.env
+*.venv
+*.virtualenv
+
+# Ignorer les fichiers Python compilés
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore pyenv-related files
+.python-version
+
+# Ignore pip cache files
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
+
+# Ignorer les fichiers de logs
+*.log
+
+# Ignorer les fichiers temporaires d'éditeur
+.idea/            # Dossier spécifique à JetBrains (PyCharm, etc.)
+.vscode/          # Dossier spécifique à Visual Studio Code
+*.swp             # Fichiers temporaires de Vim
+*.swo
+
+# Ignorer les fichiers de configuration de Jupyter Notebook
+.ipynb_checkpoints/  # Dossiers de checkpoints de Jupyter Notebook
+*.ipynb_checkpoints/ # Fichiers de checkpoints de Jupyter Notebook
+
+# Ignorer les résultats des notebooks (optionnel)
+*.out              # Fichiers de sortie des notebooks Jupyter
+*.aux              # Fichiers auxiliaires des notebooks
+
+# Ignorer les fichiers de configuration d'OS
+Icon?
+Thumbs.db
