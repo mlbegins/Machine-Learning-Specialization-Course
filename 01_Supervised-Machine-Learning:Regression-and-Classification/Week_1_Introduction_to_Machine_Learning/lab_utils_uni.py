@@ -11,7 +11,11 @@ from ipywidgets import interact
 from lab_utils_common import compute_cost
 from lab_utils_common import dlblue, dlorange, dldarkred, dlmagenta, dlpurple, dlcolors
 
-plt.style.use('../deeplearning.mplstyle')
+import os
+
+file_name = file_name = f"{os.path.dirname(os.path.realpath(__file__))}/deeplearning.mplstyle"
+plt.style.use(file_name)
+
 n_bin = 5
 dlcm = LinearSegmentedColormap.from_list(
         'dl_map', dlcolors, N=n_bin)
