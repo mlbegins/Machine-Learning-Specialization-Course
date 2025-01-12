@@ -7,6 +7,7 @@ import numpy as np
 import copy
 import math
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch
 import os
 
 file_name = f"{os.path.dirname(os.path.realpath(__file__))}/deeplearning.mplstyle"
@@ -15,8 +16,6 @@ plt.style.use(file_name)
 dlblue = '#0096ff'; dlorange = '#FF9300'; dldarkred='#C00000'; dlmagenta='#FF40FF'; dlpurple='#7030A0';
 dlcolors = [dlblue, dlorange, dldarkred, dlmagenta, dlpurple]
 dlc = dict(dlblue = '#0096ff', dlorange = '#FF9300', dldarkred='#C00000', dlmagenta='#FF40FF', dlpurple='#7030A0')
-
-
 
 def sigmoid(z):
     """
@@ -32,7 +31,7 @@ def sigmoid(z):
      g : array_like
          sigmoid(z)
     """
-    z = np.clip( z, -500, 500 )  # protect against overflow
+    z = np.clip( z, -500, 500 )           # protect against overflow
     g = 1.0/(1.0+np.exp(-z))
 
     return g
@@ -41,6 +40,127 @@ def sigmoid(z):
 # Regression Routines
 ##########################################################
 
+def predict_logistic(X, w, b):
+    """ performs prediction """
+    return sigmoid(X @ w + b)
+
+def predict_linear(X, w, b):
+    """ performs prediction """
+    return X @ w + b
+
+def compute_cost_logistic(X, y, w, b, lambda_=0, safe=False):
+    """
+    Computes cost using logistic loss, non-matrix version
+
+    Args:
+      X (ndarray): Shape (m,n)  matrix of examples with n features
+      y (ndarray): Shape (m,)   target values
+      w (ndarray): Shape (n,)   parameters for prediction
+      b (scalar):               parameter  for prediction
+      lambda_ : (scalar, float) Controls amount of regularization, 0 = no regularization
+      safe : (boolean)          True-selects under/overflow safe algorithm
+    Returns:
+      cost (scalar): cost
+    """
+
+    m,n = X.shape
+    cost = 0.0
+    for i in range(m):
+        z_i    = np.dot(X[i],w) + b                                             #(n,)(n,) or (n,) ()
+        if safe:  #avoids overflows
+            cost += -(y[i] * z_i ) + log_1pexp(z_i)
+        else:
+            f_wb_i = sigmoid(z_i)                                                   #(n,)
+            cost  += -y[i] * np.log(f_wb_i) - (1 - y[i]) * np.log(1 - f_wb_i)       # scalar
+    cost = cost/m
+
+    reg_cost = 0
+    if lambda_ != 0:
+        for j in range(n):
+            reg_cost += (w[j]**2)                                               # scalar
+        reg_cost = (lambda_/(2*m))*reg_cost
+
+    return cost + reg_cost
+
+
+def log_1pexp(x, maximum=20):
+    ''' approximate log(1+exp^x)
+        https://stats.stackexchange.com/questions/475589/numerical-computation-of-cross-entropy-in-practice
+    Args:
+    x   : (ndarray Shape (n,1) or (n,)  input
+    out : (ndarray Shape matches x      output ~= np.log(1+exp(x))
+    '''
+
+    out  = np.zeros_like(x,dtype=float)
+    i    = x <= maximum
+    ni   = np.logical_not(i)
+
+    out[i]  = np.log(1 + np.exp(x[i]))
+    out[ni] = x[ni]
+    return out
+
+
+def compute_cost_matrix(X, y, w, b, logistic=False, lambda_=0, safe=True):
+    """
+    Computes the cost using  using matrices
+    Args:
+      X : (ndarray, Shape (m,n))          matrix of examples
+      y : (ndarray  Shape (m,) or (m,1))  target value of each example
+      w : (ndarray  Shape (n,) or (n,1))  Values of parameter(s) of the model
+      b : (scalar )                       Values of parameter of the model
+      verbose : (Boolean) If true, print out intermediate value f_wb
+    Returns:
+      total_cost: (scalar)                cost
+    """
+    m = X.shape[0]
+    y = y.reshape(-1,1)             # ensure 2D
+    w = w.reshape(-1,1)             # ensure 2D
+    if logistic:
+        if safe:  #safe from overflow
+            z = X @ w + b                                                           #(m,n)(n,1)=(m,1)
+            cost = -(y * z) + log_1pexp(z)
+            cost = np.sum(cost)/m                                                   # (scalar)
+        else:
+            f    = sigmoid(X @ w + b)                                               # (m,n)(n,1) = (m,1)
+            cost = (1/m)*(np.dot(-y.T, np.log(f)) - np.dot((1-y).T, np.log(1-f)))   # (1,m)(m,1) = (1,1)
+            cost = cost[0,0]                                                        # scalar
+    else:
+        f    = X @ w + b                                                        # (m,n)(n,1) = (m,1)
+        cost = (1/(2*m)) * np.sum((f - y)**2)                                   # scalar
+
+    reg_cost = (lambda_/(2*m)) * np.sum(w**2)                                   # scalar
+
+    total_cost = cost + reg_cost                                                # scalar
+
+    return total_cost                                                           # scalar
+
+def compute_gradient_matrix(X, y, w, b, logistic=False, lambda_=0):
+    """
+    Computes the gradient using matrices
+
+    Args:
+      X : (ndarray, Shape (m,n))          matrix of examples
+      y : (ndarray  Shape (m,) or (m,1))  target value of each example
+      w : (ndarray  Shape (n,) or (n,1))  Values of parameters of the model
+      b : (scalar )                       Values of parameter of the model
+      logistic: (boolean)                 linear if false, logistic if true
+      lambda_:  (float)                   applies regularization if non-zero
+    Returns
+      dj_dw: (array_like Shape (n,1))     The gradient of the cost w.r.t. the parameters w
+      dj_db: (scalar)                     The gradient of the cost w.r.t. the parameter b
+    """
+    m = X.shape[0]
+    y = y.reshape(-1,1)             # ensure 2D
+    w = w.reshape(-1,1)             # ensure 2D
+
+    f_wb  = sigmoid( X @ w + b ) if logistic else  X @ w + b      # (m,n)(n,1) = (m,1)
+    err   = f_wb - y                                              # (m,1)
+    dj_dw = (1/m) * (X.T @ err)                                   # (n,m)(m,1) = (n,1)
+    dj_db = (1/m) * np.sum(err)                                   # scalar
+
+    dj_dw += (lambda_/m) * w        # regularize                  # (n,1)
+
+    return dj_db, dj_dw                                           # scalar, (n,1)
 
 def gradient_descent(X, y, w_in, b_in, alpha, num_iters, logistic=False, lambda_=0, verbose=True):
     """
@@ -87,6 +207,36 @@ def gradient_descent(X, y, w_in, b_in, alpha, num_iters, logistic=False, lambda_
 
     return w.reshape(w_in.shape), b, J_history  #return final w,b and J history for graphing
 
+def zscore_normalize_features(X):
+    """
+    computes  X, zcore normalized by column
+
+    Args:
+      X (ndarray): Shape (m,n) input data, m examples, n features
+
+    Returns:
+      X_norm (ndarray): Shape (m,n)  input normalized by column
+      mu (ndarray):     Shape (n,)   mean of each feature
+      sigma (ndarray):  Shape (n,)   standard deviation of each feature
+    """
+    # find the mean of each column/feature
+    mu     = np.mean(X, axis=0)                 # mu will have shape (n,)
+    # find the standard deviation of each column/feature
+    sigma  = np.std(X, axis=0)                  # sigma will have shape (n,)
+    # element-wise, subtract mu for that column from each example, divide by std for that column
+    X_norm = (X - mu) / sigma
+
+    return X_norm, mu, sigma
+
+#check our work
+#from sklearn.preprocessing import scale
+#scale(X_orig, axis=0, with_mean=True, with_std=True, copy=True)
+
+######################################################
+# Common Plotting Routines
+######################################################
+
+
 def plot_data(X, y, ax, pos_label="y=1", neg_label="y=0", s=80, loc='best' ):
     """ plots logistic data with two axis """
     # Find Indices of Positive and Negative Examples
@@ -104,97 +254,40 @@ def plot_data(X, y, ax, pos_label="y=1", neg_label="y=0", s=80, loc='best' ):
     ax.figure.canvas.header_visible = False
     ax.figure.canvas.footer_visible = False
 
+def plt_tumor_data(x, y, ax):
+    """ plots tumor data on one axis """
+    pos = y == 1
+    neg = y == 0
 
-#Function to calculate the cost
-def compute_cost_matrix(X, y, w, b, verbose=False):
-    """
-    Computes the gradient for linear regression
-     Args:
-      X (ndarray (m,n)): Data, m examples with n features
-      y (ndarray (m,)) : target values
-      w (ndarray (n,)) : model parameters  
-      b (scalar)       : model parameter
-      verbose : (Boolean) If true, print out intermediate value f_wb
-    Returns
-      cost: (scalar)
-    """
-    m = X.shape[0]
+    ax.scatter(x[pos], y[pos], marker='x', s=80, c = 'red', label="malignant")
+    ax.scatter(x[neg], y[neg], marker='o', s=100, label="benign", facecolors='none', edgecolors=dlblue,lw=3)
+    ax.set_ylim(-0.175,1.1)
+    ax.set_ylabel('y')
+    ax.set_xlabel('Tumor Size')
+    ax.set_title("Logistic Regression on Categorical Data")
 
-    # calculate f_wb for all examples.
-    f_wb = X @ w + b
-    # calculate cost
-    total_cost = (1/(2*m)) * np.sum((f_wb-y)**2)
+    ax.figure.canvas.toolbar_visible = False
+    ax.figure.canvas.header_visible = False
+    ax.figure.canvas.footer_visible = False
 
-    if verbose: print("f_wb:")
-    if verbose: print(f_wb)
-
-    return total_cost
-
-def compute_gradient_matrix(X, y, w, b):
-    """
-    Computes the gradient for linear regression
-
-    Args:
-      X (ndarray (m,n)): Data, m examples with n features
-      y (ndarray (m,)) : target values
-      w (ndarray (n,)) : model parameters  
-      b (scalar)       : model parameter
-    Returns
-      dj_dw (ndarray (n,1)): The gradient of the cost w.r.t. the parameters w.
-      dj_db (scalar):        The gradient of the cost w.r.t. the parameter b.
-
-    """
-    m,n = X.shape
-    f_wb = X @ w + b
-    e   = f_wb - y
-    dj_dw  = (1/m) * (X.T @ e)
-    dj_db  = (1/m) * np.sum(e)
-
-    return dj_db,dj_dw
-
-
-# Loop version of multi-variable compute_cost
-def compute_cost(X, y, w, b):
-    """
-    compute cost
-    Args:
-      X (ndarray (m,n)): Data, m examples with n features
-      y (ndarray (m,)) : target values
-      w (ndarray (n,)) : model parameters  
-      b (scalar)       : model parameter
-    Returns
-      cost (scalar)    : cost
-    """
-    m = X.shape[0]
-    cost = 0.0
-    for i in range(m):
-        f_wb_i = np.dot(X[i],w) + b           #(n,)(n,)=scalar
-        cost = cost + (f_wb_i - y[i])**2
-    cost = cost/(2*m)
-    return cost 
-
-def compute_gradient(X, y, w, b):
-    """
-    Computes the gradient for linear regression
-    Args:
-      X (ndarray (m,n)): Data, m examples with n features
-      y (ndarray (m,)) : target values
-      w (ndarray (n,)) : model parameters  
-      b (scalar)       : model parameter
-    Returns
-      dj_dw (ndarray Shape (n,)): The gradient of the cost w.r.t. the parameters w.
-      dj_db (scalar):             The gradient of the cost w.r.t. the parameter b.
-    """
-    m,n = X.shape           #(number of examples, number of features)
-    dj_dw = np.zeros((n,))
-    dj_db = 0.
-
-    for i in range(m):
-        err = (np.dot(X[i], w) + b) - y[i]
-        for j in range(n):
-            dj_dw[j] = dj_dw[j] + err * X[i,j]
-        dj_db = dj_db + err
-    dj_dw = dj_dw/m
-    dj_db = dj_db/m
-
-    return dj_db,dj_dw
+# Draws a threshold at 0.5
+def draw_vthresh(ax,x):
+    """ draws a threshold """
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+    ax.fill_between([xlim[0], x], [ylim[1], ylim[1]], alpha=0.2, color=dlblue)
+    ax.fill_between([x, xlim[1]], [ylim[1], ylim[1]], alpha=0.2, color=dldarkred)
+    ax.annotate("z >= 0", xy= [x,0.5], xycoords='data',
+                xytext=[30,5],textcoords='offset points')
+    d = FancyArrowPatch(
+        posA=(x, 0.5), posB=(x+3, 0.5), color=dldarkred,
+        arrowstyle='simple, head_width=5, head_length=10, tail_width=0.0',
+    )
+    ax.add_artist(d)
+    ax.annotate("z < 0", xy= [x,0.5], xycoords='data',
+                 xytext=[-50,5],textcoords='offset points', ha='left')
+    f = FancyArrowPatch(
+        posA=(x, 0.5), posB=(x-3, 0.5), color=dlblue,
+        arrowstyle='simple, head_width=5, head_length=10, tail_width=0.0',
+    )
+    ax.add_artist(f)

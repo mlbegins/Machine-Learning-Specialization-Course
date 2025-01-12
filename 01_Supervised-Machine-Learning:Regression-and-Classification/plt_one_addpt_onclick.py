@@ -1,6 +1,5 @@
 import time
 import copy
-from ipywidgets import Output
 
 from matplotlib.widgets import Button, CheckButtons
 from matplotlib.patches import FancyArrowPatch
@@ -176,6 +175,7 @@ class plt_one_addpt_onclick:
         #print(f"xy     : {bcid.rectangles[0].get_xy()}")
         #print(f"bb     : {bcid.rectangles[0].get_bbox()}")
         #print(f"points : {bcid.rectangles[0].get_bbox().get_points()}")  #[[xmin,ymin],[xmax,ymax]]
+        print("bcid : ", bcid)
 
         h = bcid.rectangles[0].get_height()
         bcid.rectangles[0].set_height(3*h)
