@@ -21,6 +21,13 @@ def load_data():
     y = y[0:1000]
     return X, y
 
+def load_data_bis():
+    X = np.load(f"{os.path.dirname(os.path.realpath(__file__))}/data/X.npy")
+    y = np.load(f"{os.path.dirname(os.path.realpath(__file__))}/data/y.npy")
+    X = X[0:5000]
+    y = y[0:5000]
+    return X, y
+
 def load_weights():
     w1 = np.load(f"{os.path.dirname(os.path.realpath(__file__))}/data/w1.npy")
     b1 = np.load(f"{os.path.dirname(os.path.realpath(__file__))}/data/b1.npy")
@@ -220,4 +227,16 @@ def display_digit(X):
     X_reshaped = X.reshape((20,20)).T
     # Display the image
     ax.imshow(X_reshaped, cmap='gray')
+    plt.show()
+
+
+def plot_loss_tf(history):
+    fig,ax = plt.subplots(1,1, figsize = (4,3))
+    widgvis(fig)
+    ax.plot(history.history['loss'], label='loss')
+    #ax.set_ylim([0, 2])
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('loss (cost)')
+    ax.legend()
+    ax.grid(True)
     plt.show()
