@@ -19,6 +19,42 @@ from networkx.drawing.nx_pydot import graphviz_layout
 from matplotlib.widgets import Slider, Button
 import os, sys
 
+def generate_split_viz(node_indices, left_indices, right_indices, feature):
+    
+    G=nx.DiGraph()
+    
+    indices_list = [node_indices, left_indices, right_indices]
+    for idx, indices in enumerate(indices_list):
+        G.add_node(idx,image= generate_node_image(indices))
+
+    G.add_edge(0,1)
+    G.add_edge(0,2)
+
+    pos = graphviz_layout(G, prog="dot")
+
+    fig=plt.figure()
+    ax=plt.subplot(111)
+    ax.set_aspect('equal')
+    nx.draw_networkx_edges(G,pos,ax=ax, arrows=True, arrowsize=40)
+    
+    trans=ax.transData.transform
+    trans2=fig.transFigure.inverted().transform
+
+    feature_name = ["Brown Cap", "Tapering Stalk Shape", "Solitary"][feature]
+    ax_name = ["Splitting on %s" % feature_name , "Left: %s = 1" % feature_name, "Right: %s = 0" % feature_name]
+    for idx, n in enumerate(G):
+        xx,yy=trans(pos[n]) # figure coordinates
+        xa,ya=trans2((xx,yy)) # axes coordinates
+        piesize = len(indices_list[idx])/9
+        p2=piesize/2.0
+        a = plt.axes([xa-p2,ya-p2, piesize, piesize])
+        a.set_aspect('equal')
+        a.imshow(G.nodes[n]['image'])
+        a.axis('off')
+        a.set_title(ax_name[idx])
+    ax.axis('off')
+    plt.show()
+    
 
 def plot_entropy():
     def entropy(p):
